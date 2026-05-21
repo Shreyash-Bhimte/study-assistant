@@ -1,5 +1,5 @@
-import { useReducer } from "react";
-import { uploadFile } from "../lib/api";
+import { useReducer, useRef, useEffect } from "react";
+import { uploadFile, askQuestion } from "../lib/api";
 
 const initialState = {
   documentText: null,
@@ -14,13 +14,23 @@ function reducer(state, action) {
     case "UPLOAD_START":
       return { ...state, isLoading: true, error: null };
     case "UPLOAD_SUCCESS":
+      return { ...state, isLoading: false, documentText: action.text, charCount: action.charCount };
+    case "UPLOAD_ERROR":
+      return { ...state, isLoading: false, error: action.error };
+    case "ASK_START":
+      return {
+        ...state,
+        isLoading: true,
+        error: null,
+        messages: [...state.messages, { role: "user", content: action.question }],
+      };
+    case "ASK_SUCCESS":
       return {
         ...state,
         isLoading: false,
-        documentText: action.text,
-        charCount: action.charCount,
+        messages: [...state.messages, { role: "assistant", content: action.answer }],
       };
-    case "UPLOAD_ERROR":
+    case "ASK_ERROR":
       return { ...state, isLoading: false, error: action.error };
     case "CLEAR":
       return initialState;
@@ -31,6 +41,11 @@ function reducer(state, action) {
 
 export function useStudySession() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.messages]);
 
   async function handleUpload(file) {
     dispatch({ type: "UPLOAD_START" });
@@ -42,9 +57,19 @@ export function useStudySession() {
     }
   }
 
+  async function handleAsk(question) {
+    dispatch({ type: "ASK_START", question });
+    try {
+      const data = await askQuestion(state.documentText, question);
+      dispatch({ type: "ASK_SUCCESS", answer: data.answer });
+    } catch (err) {
+      dispatch({ type: "ASK_ERROR", error: err.message });
+    }
+  }
+
   function clearSession() {
     dispatch({ type: "CLEAR" });
   }
 
-  return { state, handleUpload, clearSession };
+  return { state, bottomRef, handleUpload, handleAsk, clearSession };
 }

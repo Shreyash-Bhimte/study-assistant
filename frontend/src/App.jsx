@@ -1,9 +1,10 @@
 import { useStudySession } from "./hooks/useStudySession";
 import FileUpload from "./components/FileUpload";
+import ChatWindow from "./components/ChatWindow";
 import styles from "./App.module.css";
 
 export default function App() {
-  const { state, handleUpload, clearSession } = useStudySession();
+  const { state, bottomRef, handleUpload, handleAsk, clearSession } = useStudySession();
 
   return (
     <div className={styles.layout}>
@@ -15,16 +16,19 @@ export default function App() {
         )}
         {state.error && <p className={styles.error}>{state.error}</p>}
         {state.documentText && (
-          <button className={styles.clearBtn} onClick={clearSession}>
-            Clear session
-          </button>
+          <button className={styles.clearBtn} onClick={clearSession}>Clear session</button>
         )}
       </aside>
       <main className={styles.main}>
         {!state.documentText ? (
           <p className={styles.empty}>Upload a document to get started.</p>
         ) : (
-          <p className={styles.ready}>Document ready. Chat coming in Commit 6.</p>
+          <ChatWindow
+            messages={state.messages}
+            isLoading={state.isLoading}
+            onAsk={handleAsk}
+            bottomRef={bottomRef}
+          />
         )}
       </main>
     </div>
