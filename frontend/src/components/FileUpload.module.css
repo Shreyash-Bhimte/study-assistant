@@ -1,0 +1,17 @@
+.container {
+  padding: 1.5rem;
+  border: 2px dashed #444;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.label {
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #ccc;
+  display: block;
+}
+
+.input {
+  display: none;
+}
