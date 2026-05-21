@@ -1,5 +1,5 @@
 import { useReducer, useRef, useEffect } from "react";
-import { uploadFile, askQuestion } from "../lib/api";
+import { uploadFile, askQuestionStream } from "../lib/api";
 
 const initialState = {
   documentText: null,
@@ -34,6 +34,28 @@ function reducer(state, action) {
       return { ...state, isLoading: false, error: action.error };
     case "CLEAR":
       return initialState;
+    case "ASK_STREAM_START":
+        return {
+            ...state,
+            isLoading: true,
+            error: null,
+            messages: [
+            ...state.messages,
+            { role: "user", content: action.question },
+            { role: "assistant", content: "" },
+            ],
+        };
+    case "ASK_STREAM_CHUNK":
+        return {
+            ...state,
+            messages: state.messages.map((msg, i) =>
+            i === state.messages.length - 1
+                ? { ...msg, content: msg.content + action.chunk }
+                : msg
+            ),
+        };
+    case "ASK_STREAM_DONE":
+        return { ...state, isLoading: false };
     default:
       return state;
   }
@@ -57,15 +79,17 @@ export function useStudySession() {
     }
   }
 
-  async function handleAsk(question) {
-    dispatch({ type: "ASK_START", question });
+    async function handleAsk(question) {
+    dispatch({ type: "ASK_STREAM_START", question });
     try {
-      const data = await askQuestion(state.documentText, question);
-      dispatch({ type: "ASK_SUCCESS", answer: data.answer });
+        await askQuestionStream(state.documentText, question, (chunk) => {
+        dispatch({ type: "ASK_STREAM_CHUNK", chunk });
+        });
+        dispatch({ type: "ASK_STREAM_DONE" });
     } catch (err) {
-      dispatch({ type: "ASK_ERROR", error: err.message });
+        dispatch({ type: "ASK_ERROR", error: err.message });
     }
-  }
+    }
 
   function clearSession() {
     dispatch({ type: "CLEAR" });

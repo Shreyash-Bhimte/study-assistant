@@ -31,3 +31,25 @@ export async function askQuestion(documentText, question) {
 
   return res.json(); // { answer }
 }
+
+export async function askQuestionStream(documentText, question, onChunk) {
+  const res = await fetch(`${BASE_URL}/ask-stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document_text: documentText, question }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Stream failed");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    onChunk(decoder.decode(value, { stream: true }));
+  }
+}
