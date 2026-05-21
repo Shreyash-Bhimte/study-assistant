@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from file_parser import extract_text_from_pdf, extract_text_from_txt
 from models import UploadResponse
+from gemini_client import ask_gemini
+from models import UploadResponse, QuestionRequest, AnswerResponse
 
 load_dotenv()
 
@@ -39,3 +41,14 @@ async def upload_file(file: UploadFile = File(...)):
 
     text = text[:MAX_CHARS]
     return UploadResponse(text=text, char_count=len(text))
+
+@app.post("/ask", response_model=AnswerResponse)
+def ask_question(body: QuestionRequest):
+    system_prompt = f"""You are a study assistant. Answer the user's question using ONLY the content provided below.
+If the answer is not in the content, say "I couldn't find that in the document."
+
+CONTENT:
+{body.document_text}"""
+
+    answer = ask_gemini(system_prompt, body.question)
+    return AnswerResponse(answer=answer)
