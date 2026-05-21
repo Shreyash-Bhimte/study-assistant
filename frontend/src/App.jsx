@@ -1,10 +1,11 @@
 import { useStudySession } from "./hooks/useStudySession";
 import FileUpload from "./components/FileUpload";
 import ChatWindow from "./components/ChatWindow";
+import Toolbar from "./components/Toolbar";
 import styles from "./App.module.css";
 
 export default function App() {
-  const { state, bottomRef, handleUpload, handleAsk, clearSession } = useStudySession();
+  const { state, bottomRef, handleUpload, handleAsk, handleSummarise, clearSession } = useStudySession();
 
   return (
     <div className={styles.layout}>
@@ -23,12 +24,25 @@ export default function App() {
         {!state.documentText ? (
           <p className={styles.empty}>Upload a document to get started.</p>
         ) : (
-          <ChatWindow
-            messages={state.messages}
-            isLoading={state.isLoading}
-            onAsk={handleAsk}
-            bottomRef={bottomRef}
-          />
+          <div className={styles.panel}>
+            <Toolbar
+              onSummarise={handleSummarise}
+              isLoading={state.isLoading}
+              hasDocument={!!state.documentText}
+            />
+            {state.summary && (
+              <div className={styles.summary}>
+                <h2 className={styles.summaryTitle}>Summary</h2>
+                <p className={styles.summaryText}>{state.summary}</p>
+              </div>
+            )}
+            <ChatWindow
+              messages={state.messages}
+              isLoading={state.isLoading}
+              onAsk={handleAsk}
+              bottomRef={bottomRef}
+            />
+          </div>
         )}
       </main>
     </div>

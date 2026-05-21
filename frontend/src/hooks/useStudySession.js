@@ -1,5 +1,6 @@
 import { useReducer, useRef, useEffect } from "react";
-import { uploadFile, askQuestionStream } from "../lib/api";
+import { uploadFile, askQuestionStream, summariseDocument } from "../lib/api";
+
 
 const initialState = {
   documentText: null,
@@ -56,6 +57,19 @@ function reducer(state, action) {
         };
     case "ASK_STREAM_DONE":
         return { ...state, isLoading: false };
+    case "SUMMARY_START":
+        return {
+            ...state,
+            isLoading: true,
+            error: null,
+            summary: "",
+        };
+    case "SUMMARY_CHUNK":
+        return { ...state, summary: state.summary + action.chunk };
+    case "SUMMARY_DONE":
+        return { ...state, isLoading: false };
+    case "CLEAR":
+        return initialState;
     default:
       return state;
   }
@@ -95,5 +109,16 @@ export function useStudySession() {
     dispatch({ type: "CLEAR" });
   }
 
-  return { state, bottomRef, handleUpload, handleAsk, clearSession };
+  async function handleSummarise() {
+  dispatch({ type: "SUMMARY_START" });
+  try {
+    await summariseDocument(state.documentText, (chunk) => {
+      dispatch({ type: "SUMMARY_CHUNK", chunk });
+    });
+    dispatch({ type: "SUMMARY_DONE" });
+  } catch (err) {
+    dispatch({ type: "ASK_ERROR", error: err.message });
+  }
+}
+    return { state, bottomRef, handleUpload, handleAsk, handleSummarise, clearSession };
 }

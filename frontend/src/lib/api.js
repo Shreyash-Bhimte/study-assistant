@@ -53,3 +53,21 @@ export async function askQuestionStream(documentText, question, onChunk) {
     onChunk(decoder.decode(value, { stream: true }));
   }
 }
+
+export async function summariseDocument(documentText, onChunk) {
+  const res = await fetch(`${BASE_URL}/summarise`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document_text: documentText }),
+  });
+
+  if (!res.ok) throw new Error("Summarise failed");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    onChunk(decoder.decode(value, { stream: true }));
+  }
+}
