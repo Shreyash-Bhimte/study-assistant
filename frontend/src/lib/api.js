@@ -71,3 +71,13 @@ export async function summariseDocument(documentText, onChunk) {
     onChunk(decoder.decode(value, { stream: true }));
   }
 }
+
+export async function generateFlashcards(documentText) {
+  const res = await fetch(`${BASE_URL}/flashcards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document_text: documentText }),
+  });
+  if (!res.ok) throw new Error("Flashcard generation failed");
+  return res.json(); // { cards: [{question, answer}] }
+}

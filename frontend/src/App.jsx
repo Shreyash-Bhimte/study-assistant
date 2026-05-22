@@ -2,18 +2,26 @@ import { useStudySession } from "./hooks/useStudySession";
 import FileUpload from "./components/FileUpload";
 import ChatWindow from "./components/ChatWindow";
 import Toolbar from "./components/Toolbar";
+import FlashCards from "./components/FlashCards";
 import styles from "./App.module.css";
 
 export default function App() {
-  const { state, bottomRef, handleUpload, handleAsk, handleSummarise, clearSession } = useStudySession();
+  const { state, bottomRef, handleUpload, handleAsk, handleSummarise, handleFlashcards, clearSession } = useStudySession();
 
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <h1 className={styles.logo}>StudyAI</h1>
-        <FileUpload onUpload={handleUpload} isLoading={state.isLoading} />
+        <FileUpload
+          onUpload={handleUpload}
+          isLoading={state.isLoading}
+          fileName={state.fileName}
+        />
         {state.charCount > 0 && (
-          <p className={styles.charCount}>{state.charCount.toLocaleString()} characters loaded</p>
+          <div>
+            <p className={styles.charCount}>{state.charCount.toLocaleString()} characters</p>
+            <p className={styles.charCount}>~{Math.round(state.charCount / 4).toLocaleString()} tokens</p>
+          </div>
         )}
         {state.error && <p className={styles.error}>{state.error}</p>}
         {state.documentText && (
@@ -27,6 +35,7 @@ export default function App() {
           <div className={styles.panel}>
             <Toolbar
               onSummarise={handleSummarise}
+              onFlashcards={handleFlashcards}
               isLoading={state.isLoading}
               hasDocument={!!state.documentText}
             />
@@ -36,6 +45,7 @@ export default function App() {
                 <p className={styles.summaryText}>{state.summary}</p>
               </div>
             )}
+            <FlashCards cards={state.flashcards} />
             <ChatWindow
               messages={state.messages}
               isLoading={state.isLoading}
