@@ -1,11 +1,12 @@
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from file_parser import extract_text_from_pdf, extract_text_from_txt
-from models import UploadResponse
-from gemini_client import ask_gemini
-from models import UploadResponse, QuestionRequest, AnswerResponse
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from gemini_client import ask_gemini, stream_gemini, stream_summary, generate_flashcards
+import json as json_lib
+from models import UploadResponse, QuestionRequest, AnswerResponse,StreamRequest, FlashcardsRequest, FlashcardsResponse
 
 load_dotenv()
 
@@ -13,7 +14,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite's default port
+    allow_origins=[
+        "http://localhost:5173",
+        "https://study-assistant-frontend-rho.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,3 +56,37 @@ CONTENT:
 
     answer = ask_gemini(system_prompt, body.question)
     return AnswerResponse(answer=answer)
+
+@app.post("/ask-stream")
+def ask_stream(body: StreamRequest):
+    system_prompt = f"""You are a study assistant. Answer the user's question using ONLY the content provided below.
+If the answer is not in the content, say "I couldn't find that in the document."
+
+CONTENT:
+{body.document_text}"""
+
+    def generate():
+        for chunk in stream_gemini(system_prompt, body.question):
+            yield chunk
+
+    return StreamingResponse(generate(), media_type="text/plain")
+
+class SummaryRequest(BaseModel):
+    document_text: str
+
+@app.post("/summarise")
+def summarise(body: SummaryRequest):
+    def generate():
+        for chunk in stream_summary(body.document_text):
+            yield chunk
+    return StreamingResponse(generate(), media_type="text/plain")
+
+@app.post("/flashcards", response_model=FlashcardsResponse)
+def flashcards(body: FlashcardsRequest):
+    raw = generate_flashcards(body.document_text)
+    cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    try:
+        cards = json_lib.loads(cleaned)
+    except json_lib.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Try again.")
+    return FlashcardsResponse(cards=cards)
