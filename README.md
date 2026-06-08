@@ -1,151 +1,172 @@
-# Expense Tracker
+# StudyAI — AI-Powered Study Assistant
 
-A full-stack personal finance app for tracking monthly expenses — built as my first React project and first project with a real backend, authentication, and database.
+A full-stack AI application that lets you upload a document and interact with it through streaming chat, summarisation, and flashcard generation.
 
-**Live demo:** https://expense-tracker-git-main-shreyash-bhimtes-projects.vercel.app
+**Live:** https://study-assistant-frontend-rho.vercel.app
 
 ---
 
 ## Features
 
-- Email/password authentication (sign up, log in, log out)
-- Add, edit inline, and delete expenses
-- Categories: Food, Transport, Shopping, Bills, Health, Other
-- Monthly filter — view and analyze any past month
-- Summary cards — total spent and per-category breakdown
-- Bar chart — spending by category (Recharts)
-- Line chart — daily spending trend for the selected month
-- Row Level Security — users can only access their own data
-- Loading, empty, and error states throughout
-- Fully mobile responsive
+- Upload PDF or plain text files as study material
+- Ask questions about the document — AI answers only from the uploaded content
+- Summarise the document into 6 structured bullet points
+- Generate 5 flashcards with a CSS flip animation
+- Streaming responses — AI output renders word by word
+- Token and character count of uploaded content
+- Session clear — wipes document and chat history
+- Loading states and auto-dismissing error handling
 
 ---
 
-## Tech stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 (Vite), CSS Modules |
-| Backend / Database | Supabase (PostgreSQL + Auth) |
-| Charts | Recharts |
-| Deployment | Vercel (frontend), Supabase (backend) |
-| Version control | Git / GitHub |
+## Architecture
+```
+Browser (React + Vite)  ←→  FastAPI (Python)  ←→  Gemini API
+Vercel                    Render               Google
+```
+The browser never calls Gemini directly. Every request goes through the FastAPI backend, which holds the API key, builds the prompt, and streams the response back to the frontend.
 
 ---
 
-## Local setup
+## Tech Stack
+
+**Frontend**
+- React 18 + Vite
+- CSS Modules
+- `useReducer` for session state
+- `useRef` for auto-scroll
+- `ReadableStream` for streaming
+
+**Backend**
+- Python 3.12 + FastAPI
+- PyMuPDF (`fitz`) for PDF parsing
+- `requests` for raw Gemini API calls
+- `StreamingResponse` for SSE streaming
+- `python-dotenv` for environment variables
+- Pydantic for request/response validation
+
+**AI**
+- Google Gemini 2.5 Flash
+- Raw HTTP calls — no SDK or framework
+- Structured prompt engineering for flashcard JSON output
+- Streaming via `streamGenerateContent` with `alt=sse`
+
+**Deployment**
+- Frontend → Vercel
+- Backend → Render
+
+---
+
+## Project Structure
+```
+study-assistant/
+├── backend/
+│   ├── main.py            # FastAPI app, all routes
+│   ├── gemini_client.py   # Gemini API functions
+│   ├── file_parser.py     # PDF and text extraction
+│   ├── models.py          # Pydantic schemas
+│   └── requirements.txt
+└── frontend/
+└── src/
+├── components/
+│   ├── FileUpload.jsx
+│   ├── ChatWindow.jsx
+│   ├── MessageBubble.jsx
+│   ├── FlashCards.jsx
+│   └── Toolbar.jsx
+├── hooks/
+│   └── useStudySession.js
+├── lib/
+│   └── api.js
+└── App.jsx
+```
+---
+
+## Local Setup
 
 ### Prerequisites
+- Python 3.11+
 - Node.js 18+
-- A free [Supabase](https://supabase.com) account
-- A free [Vercel](https://vercel.com) account
+- Gemini API key — free at [aistudio.google.com](https://aistudio.google.com)
 
-### 1. Clone the repo
+### Backend
 
 ```bash
-git clone https://github.com/Shreyash-Bhimte/expense-tracker.git
-cd expense-tracker
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Mac/Linux
+pip install -r requirements.txt
+```
+
+Create `backend/.env`:
+GEMINI_API_KEY=your_key_here
+
+Start the server:
+```bash
+uvicorn main:app --reload
+```
+
+Backend runs at `http://localhost:8000`
+API docs at `http://localhost:8000/docs`
+
+### Frontend
+
+```bash
+cd frontend
 npm install
 ```
 
-### 2. Create a Supabase project
+Create `frontend/.env.local`:
+VITE_API_URL=http://localhost:8000
 
-1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) and create a new project
-2. In the SQL Editor, run the following to create the expenses table and enable Row Level Security:
-
-```sql
-create table expenses (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  amount numeric(10, 2) not null,
-  category text not null,
-  date date not null,
-  note text,
-  created_at timestamptz default now() not null
-);
-
-alter table expenses enable row level security;
-
-create policy "Users can read own expenses"
-  on expenses for select using (auth.uid() = user_id);
-
-create policy "Users can insert own expenses"
-  on expenses for insert with check (auth.uid() = user_id);
-
-create policy "Users can update own expenses"
-  on expenses for update using (auth.uid() = user_id);
-
-create policy "Users can delete own expenses"
-  on expenses for delete using (auth.uid() = user_id);
-```
-
-3. In Supabase → Authentication → Providers → Email, disable **Confirm email** for local development
-
-### 3. Set environment variables
-
-Create a `.env.local` file in the project root:
-```
-VITE_SUPABASE_URL=your_project_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
-```
-Both values are in Supabase → Project Settings → API.
-
-### 4. Run locally
-
+Start the dev server:
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Frontend runs at `http://localhost:5173`
 
 ---
 
-## Project structure
-```
-src/
-├── components/       # Reusable UI — ExpenseItem, ExpenseList, charts, Spinner
-├── pages/            # Login, Signup, Dashboard, AddExpense
-├── hooks/            # useAuth, useExpenses — Supabase logic extracted from components
-├── lib/              # supabaseClient.js, categories.js, expenseUtils.js
-└── App.jsx           # Route definitions
-```
+## API Endpoints
 
----
-
-## Key concepts implemented
-
-- **JSX** — syntactic sugar over React.createElement, compiled by Vite
-- **useState / useEffect** — local state and side effects with dependency arrays
-- **Lifting state up** — child components trigger parent state changes via prop callbacks
-- **Custom hooks** — useAuth and useExpenses extract all Supabase logic out of components
-- **Derived state** — filtered expenses and summary totals computed directly, never stored
-- **Protected routes** — ProtectedRoute and PublicRoute guard all authenticated pages
-- **Row Level Security** — PostgreSQL-level policy ensuring users only access their own rows
-- **Environment variables** — Vite's import.meta.env with .env.local, never committed
-- **Error boundaries** — class component catching render errors app-wide
-- **SPA routing** — vercel.json rewrite rule serving index.html for all paths
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/upload` | Upload PDF or .txt, returns extracted text |
+| POST | `/ask-stream` | Streaming chat response |
+| POST | `/summarise` | Streaming bullet point summary |
+| POST | `/flashcards` | Generate 5 Q&A flashcards as JSON |
 
 ---
 
 ## Deployment
 
-Frontend is deployed on Vercel with automatic deployments on every push to `main`.
+**Backend (Render)**
+- New Web Service → connect GitHub repo
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Environment variable: `GEMINI_API_KEY`
 
-Environment variables are configured in Vercel → Project Settings → Environment Variables.
-
-A `vercel.json` rewrite rule handles client-side routing so direct URL access and page refreshes resolve correctly.
+**Frontend (Vercel)**
+- New Project → connect GitHub repo
+- Root directory: `frontend`
+- Environment variable: `VITE_API_URL` → your Render URL
 
 ---
 
-## Screenshots
+## Key Implementation Notes
 
-### Dashboard
-![Dashboard](screenshots/dashboard-desktop.png)
+- **No LangChain** — raw Gemini API calls only, every part of the pipeline is explicit
+- **No database** — conversation history held in React state, stateless backend
+- **In-memory PDF parsing** — PyMuPDF reads bytes directly, no disk I/O
+- **Structured output** — flashcard prompt constrains Gemini to return raw JSON; defensive parsing strips markdown fences before `json.loads()`
+- **Streaming** — backend uses `streamGenerateContent` with SSE, frontend reads `ReadableStream` chunk by chunk
 
-### Mobile View
-![Mobile View](screenshots/dashboard-mobile.png)
 ---
 
 ## Author
 
-Shreyash Bhimte — [github.com/Shreyash-Bhimte](https://github.com/Shreyash-Bhimte)
+Shreyash Bhimte — [github.com/Shreyash-Bhimte](https://github.com/Shreyash-Bhimte) · [LinkedIn](https://www.linkedin.com/in/shreyash-bhimte)
